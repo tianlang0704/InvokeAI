@@ -19,12 +19,13 @@ echo -e "arch:\t\t ${ARCH}"
 echo -e "Platform:\t ${PLATFORM}"
 echo -e "Invokeai_tag:\t ${INVOKEAI_TAG}\n"
 
-if [[ -n "$(docker volume ls -f name="${VOLUMENAME}" -q)" ]]; then
-  echo -e "Volume already exists\n"
-else
-  echo -n "createing docker volume "
-  docker volume create "${VOLUMENAME}"
-fi
+# if [[ -n "$(docker volume ls -f name="${volumename}" -q)" ]]; then
+#   echo "Volume already exists"
+#   echo
+# else
+#   echo -n "createing docker volume "
+#   docker volume create "${volumename}"
+# fi
 
 # Build Container
 docker build \

@@ -191,6 +191,40 @@ class ModelCache(object):
         omega[model_name] = config
         if clobber:
             self._invalidate_cached_model(model_name)
+            
+    def transform_checkpoint_dict_key(self, k):
+        chckpoint_dict_replacements = {
+            'cond_stage_model.transformer.embeddings.': 'cond_stage_model.transformer.text_model.embeddings.',
+            'cond_stage_model.transformer.encoder.': 'cond_stage_model.transformer.text_model.encoder.',
+            'cond_stage_model.transformer.final_layer_norm.': 'cond_stage_model.transformer.text_model.final_layer_norm.',
+        }
+        for text, replacement in chckpoint_dict_replacements.items():
+            if k.startswith(text):
+                k = replacement + k[len(text):]
+        return k
+
+    def get_state_dict_from_checkpoint(self, pl_sd):
+        pl_sd = pl_sd.pop("state_dict", pl_sd)
+        pl_sd.pop("state_dict", None)
+
+        sd = {}
+        for k, v in pl_sd.items():
+            new_key = self.transform_checkpoint_dict_key(k)
+            if new_key is not None:
+                sd[new_key] = v
+
+        pl_sd.clear()
+        pl_sd.update(sd)
+
+        return pl_sd
+
+    def read_state_dict(self, checkpoint_file, print_global_state=False, map_location=None):
+        pl_sd = torch.load(io.BytesIO(checkpoint_file), map_location=map_location)
+        if print_global_state and "global_step" in pl_sd:
+            print(f"Global Step: {pl_sd['global_step']}")
+
+        sd = self.get_state_dict_from_checkpoint(pl_sd)
+        return sd
     
     def _load_model(self, model_name:str):
         """Load and initialize the model from configuration variables passed at object creation time"""
@@ -225,7 +259,8 @@ class ModelCache(object):
         with open(weights,'rb') as f:
             weight_bytes = f.read()
         model_hash  = self._cached_sha256(weights,weight_bytes)
-        sd = torch.load(io.BytesIO(weight_bytes), map_location='cpu')
+        # sd = torch.load(io.BytesIO(weight_bytes), map_location='cpu')
+        sd = self.read_state_dict(weight_bytes, False, "cpu")
         del weight_bytes
         # merged models from auto11 merge board are flat for some reason
         if 'state_dict' in sd:

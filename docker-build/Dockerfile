@@ -52,6 +52,21 @@ ARG WORKDIR=/usr/src/app
 WORKDIR ${WORKDIR}
 COPY --from=builder ${WORKDIR} .
 ENV PATH=${WORKDIR}/.venv/bin:$PATH
+
+# install patch match req
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Moscow
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends cmake libopencv-dev \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+RUN cd /usr/lib/x86_64-linux-gnu/pkgconfig/ && ln -sf opencv4.pc opencv.pc
+RUN pip install --no-cache-dir opencv-python
+
+# 
+RUN touch ~/.invokeai
+
+# set Environment, Entrypoint and default CMD
 ENV INVOKEAI_ROOT /data
 ENV INVOKE_MODEL_RECONFIGURE --yes
 
