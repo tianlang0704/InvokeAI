@@ -4,7 +4,8 @@ FROM python:3.10-slim AS builder
 SHELL [ "/bin/bash", "-c" ]
 
 # Install necesarry packages
-RUN apt-get update \
+RUN sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list \
+  && apt-get update \
   && apt-get install -y \
     --no-install-recommends \
     gcc=4:10.2.* \
@@ -21,8 +22,10 @@ ENV PATH ${WORKDIR}/.venv/bin:$PATH
 ARG PIP_REQUIREMENTS=requirements-lin-cuda.txt
 COPY . ./environments-and-requirements/${PIP_REQUIREMENTS} ./
 
-# install requirements
-RUN python3 -m venv .venv \
+# Install requirements
+RUN pip install -i https://pypi.douban.com/simple/ -U pip \
+  && pip config set global.index-url https://pypi.douban.com/simple/ \
+  && python3 -m venv .venv \
   && pip install \
     --upgrade \
     --no-cache-dir \
@@ -36,7 +39,8 @@ RUN python3 -m venv .venv \
 FROM python:3.10-slim AS runtime
 
 # Install necesarry packages
-RUN apt-get update \
+RUN sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list \
+  && apt-get update \
   && apt-get install -y \
     --no-install-recommends \
     build-essential=12.9 \
@@ -61,9 +65,15 @@ RUN apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 RUN cd /usr/lib/x86_64-linux-gnu/pkgconfig/ && ln -sf opencv4.pc opencv.pc
-RUN pip install --no-cache-dir opencv-python
+RUN pip install -i https://pypi.douban.com/simple/ -U pip \
+  && pip config set global.index-url https://pypi.douban.com/simple/ \
+  && pip install --no-cache-dir opencv-python
 
-# 
+# Copy source
+WORKDIR /usr/src/app
+COPY --from=builder /usr/src/app .
+
+# Fix a no file bug
 RUN touch ~/.invokeai
 
 # set Environment, Entrypoint and default CMD
